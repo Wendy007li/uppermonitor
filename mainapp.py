@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+__author__ = 'Li qiaoxia'
 
 from twisted.words.protocols.irc import lowDequote
 from builtins import str
@@ -12,30 +13,24 @@ from socket import *
 import traceback
     
 
-__author__ = 'Li qiaoxia'
-
-'''
-async tcp application.
-'''
-
 import logging; logging.basicConfig(level=logging.INFO)
 from switch import switch
 
 import asyncio, os, json, time
 from datetime import datetime
-
-#from aiohttp import web
-#from jinja2 import Environment, FileSystemLoader
-
+from multiprocessing import Pool
+import os, time, random
 from config import configs
 import mysql.connector
-#import orm
 import socket
-#from models import PLCstation, PLCtype
 
-#from coroweb import add_routes, add_static
 
-#from handlers import cookie2user, COOKIE_NAME
+'''
+async tcp application.
+'''
+
+
+
 PlCstationtype=    {
     'typename':'A',
     'register':'a',
@@ -199,21 +194,22 @@ def getplcontent(stationnum,ipaddr,stationtype,ipport=9094):
     wdinstr='WD'
     rdinstr='RD'
     
-    
+    print('ipaddr=%s' % ipaddr)
 
-    # 接收欢迎消息:
-    #print(s.recv(1024).decode('utf-8'))
-    #for data in [b'Michael', b'Tracy', b'Sarah']:
-    for  data in [1]:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    #    for  data in [1]:
+    #改用进程后，需要死循环来获取数据
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    
+       
     #100ms 超时时间    
-        s.settimeout(0.100) 
-        addr=(testip,testport)
+    s.settimeout(0.100) 
+    addr=(testip,testport)
     # 建立连接:
-        err=s.connect_ex(addr)
-        if err != 0 :
-            print("cannot connect to %s:%d,errnum=%d " %(testip,testport,err))
-            return()
+    err=s.connect_ex(addr)
+    if err != 0 :
+        print("cannot connect to %s:%d,errnum=%d " %(testip,testport,err))
+        return()
+    while True :
         # 发送数据:
         ss=plccmd(stationnum,wdinstr,wdsendmsg)
                 
@@ -246,9 +242,9 @@ def getplcontent(stationnum,ipaddr,stationtype,ipport=9094):
         print("received:",testrevmsg)
     #    print(testrevmsg.decode('utf-8'))
         rcvplcmsg(testrevmsg,rdinstr)
-        
+        time.sleep(0.5)
     #    s.send(b'exit')
-        s.close()
+    s.close()
     
     #plccmd('01','RD',testsendmsg)
     #testrevmsg=b"%01$RD630044330A0062\n"
@@ -274,6 +270,8 @@ if __name__ == '__main__':
     cursor.execute('select * from PLCstation order by created_at desc')
     plcstations = cursor.fetchall()
     
+    p = Pool(5)
+    
     for plcsta in plcstations:
     #    print(plcsta)
         stationnum=plcsta[1];
@@ -281,16 +279,22 @@ if __name__ == '__main__':
         stationtype=plcsta[3];
         ipport=plcsta[5];
         print("get station=%s,%s,%s,%s" % (stationnum,ipaddr,stationtype,ipport))
-        sdata=getplcontent(stationnum,ipaddr,stationtype,ipport)
-     #   sendmes(stationnum,ipaddr,stationtype,data)
-    time.sleep(1)
-    # 关闭Cursor和Connection:
+        #add processes to deal with every PLc
+        p.apply_async(getplcontent, args=(stationnum,ipaddr,stationtype,ipport,))
+    
+#        sdata=getplcontent(stationnum,ipaddr,stationtype,ipport)
+         #   sendmes(stationnum,ipaddr,stationtype,data)
     cursor.close()
     conn.close()
+    # 关闭Cursor和Connection:
+    print ('Waiting for all subprocesses done...')
+    p.close()
+    p.join()
+    print ('All subprocesses done.')
+#    time.sleep(1)
+   
 
-'''
-主循环启动，轮询各个PLc 获取数据，提交mes
-'''
+
 
 
 
