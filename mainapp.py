@@ -77,9 +77,9 @@ def plccmd(stationnum,instr,data=''):
     insascii=instruction.encode('ascii')
     print("first ascii",insascii)
     for i in range(len(insascii)) :
-        print (insascii[i])
+#        print (insascii[i])
         bcc^=insascii[i]
-        print('bcc=',bcc)
+#        print('bcc=',bcc)
     
     highbcc= hex(int(bcc/16))
     lowbcc= hex(int(bcc%16))
@@ -129,14 +129,14 @@ def rcvplcmsg(msgdatacome,instr):
             bcc=0
            
             for i in range(mlen-3) :
-                print (msgdata[i])
+#                print (msgdata[i])
                 bcc^=msgdata[i]
-                print('bcc=',bcc)
+#                print('bcc=',bcc)
 #            getbcc=int(msgdatacome[mlen-3:mlen-3],16)*16+int(msgdatacome[mlen-2:mlen-2])
             
             getbcc = int(str(msgdata[mlen-3:mlen-1],encoding="utf-8"),16)
             
-            print('getbcc=',msgdata[mlen-3:mlen-1],getbcc)
+#            print('getbcc=',msgdata[mlen-3:mlen-1],getbcc)
             if getbcc == bcc :
  #               print("ca=",msgdatacome[4:6])
                 ca=msgdatacome[4:6].decode()
@@ -202,18 +202,24 @@ def getplcontent(stationnum,ipaddr,stationtype,ipport=9094):
     
        
     #100ms 超时时间    
-    s.settimeout(0.100) 
+    s.settimeout(1) 
     addr=(testip,testport)
     # 建立连接:
     err=s.connect_ex(addr)
     if err != 0 :
         print("cannot connect to %s:%d,errnum=%d " %(testip,testport,err))
         return()
+    cc=0
+    t1=time.time()
     while True :
         # 发送数据:
-        ss=plccmd(stationnum,wdinstr,wdsendmsg)
+        
                 
-        print("send to sever",ss.decode(), len(ss))
+#        print("%d times send to sever",ss.decode(), len(ss) % cc)
+        print("%d times send to sever" % cc)
+        cc+=1
+        '''
+        ss=plccmd(stationnum,wdinstr,wdsendmsg)
         try :
             s.sendall(ss)
         except Exception as e:  #catch all exceptions        
@@ -230,7 +236,7 @@ def getplcontent(stationnum,ipaddr,stationtype,ipport=9094):
             print("received:",testrevmsg)
         #    print(testrevmsg.decode('utf-8'))
             rcvplcmsg(testrevmsg,wdinstr)
-        
+        '''
     # 读测试    
         ss=plccmd(stationnum,rdinstr,rdsendmsg)
         print("send to sever",ss.decode(), len(ss))
@@ -241,11 +247,18 @@ def getplcontent(stationnum,ipaddr,stationtype,ipport=9094):
         testrevmsg=s.recv(1024)
         print("received:",testrevmsg)
     #    print(testrevmsg.decode('utf-8'))
-        rcvplcmsg(testrevmsg,rdinstr)
-        time.sleep(0.5)
+        try:
+            rcvplcmsg(testrevmsg,rdinstr)
+        except  Exception as e:
+            print(" RD test: something unexpected happened!")
+            print ('traceback.print_exc():',traceback.print_exc())
+        else :        
+            print(" RD received:",testrevmsg) 
+        time.sleep(0.2)
     #    s.send(b'exit')
     s.close()
-    
+    t2=time.time()
+    print("run seconds=%d" %(t2-t1))
     #plccmd('01','RD',testsendmsg)
     #testrevmsg=b"%01$RD630044330A0062\n"
     #print("testrevmsg=",testrevmsg)
@@ -284,14 +297,15 @@ if __name__ == '__main__':
     
 #        sdata=getplcontent(stationnum,ipaddr,stationtype,ipport)
          #   sendmes(stationnum,ipaddr,stationtype,data)
+    # 关闭Cursor和Connection: 
     cursor.close()
     conn.close()
-    # 关闭Cursor和Connection:
+
     print ('Waiting for all subprocesses done...')
     p.close()
     p.join()
     print ('All subprocesses done.')
-#    time.sleep(1)
+
    
 
 
